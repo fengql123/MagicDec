@@ -11,6 +11,8 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 import argparse
 from MagicDec.Engine.StreamingLLM.backend import LMBackend
+from datasets import load_dataset
+import re
 
 parser = argparse.ArgumentParser(description='Process model configuration and partitions.')
 parser.add_argument('--model', type=Path, default=Path("/scratch/models/meta-llama/Meta-Llama-3.1-8B/model.pth"), help='model')
@@ -82,14 +84,15 @@ else:
     eot_2 = tokenizer.encode("<|eot_id|>")[-1]
 print(f"eot_1: {eot_1}, eot_2: {eot_2}")
 
-if args.dataset == "pg19":
-    dataset = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
-# elif args.dataset.startswith("ruler"):
-#     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
-else:
-    raise ValueError(f"Unknown dataset {args.dataset}")
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
-num_eval_steps = min(10, len(dataloader))
+# if args.dataset == "pg19":
+#     dataset = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
+# # elif args.dataset.startswith("ruler"):
+# #     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
+# else:
+#     raise ValueError(f"Unknown dataset {args.dataset}")
+# dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
+ds = load_dataset('THUDM/LongBench-v2', split='train')
+num_eval_steps = min(10, len(ds))
 
 total_time = 0.0
 num_gen_tokens = 0
@@ -98,11 +101,30 @@ if benchmark:
     draft_time = 0.0
     target_time = 0.0
     verify_loop = 0.0
+    
 
-for step, batch in tqdm(enumerate(dataloader), total=num_eval_steps):
+query_template = open('../prompt_templates/query.txt', encoding='utf-8').read()
+
+def extract_answer(response):
+    response = response.replace('*', '')
+    match = re.search(r'The correct answer is \(([A-D])\)', response)
+    if match:
+        return match.group(1)
+    else:
+        match = re.search(r'The correct answer is ([A-D])', response)
+        if match:
+            return match.group(1)
+        else:
+            return None
+
+acc = 0
+for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     if step >= num_eval_steps:
         break
-    input_ids = batch[0].to(DEVICE)
+    long_context = item["context"]
+    query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
+    
+    input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
     terminal = False
     tokens_buffer= torch.zeros((BATCH_SIZE, args.gamma+1), device=DEVICE).long()
     output = torch.zeros(BATCH_SIZE, MAX_LEN_TARGET+1, device=DEVICE).long()
@@ -110,9 +132,13 @@ for step, batch in tqdm(enumerate(dataloader), total=num_eval_steps):
     num_nodes = torch.zeros(BATCH_SIZE,device=DEVICE).long()
     num_nodes += input_ids.shape[1]
 
+    # prefill
+    start_prefill = time.perf_counter()
     tokens_buffer[:, :1] = engine.encode(input_ids=input_ids)[:,-1:]
     engine.draft_encode(input_ids=input_ids)
+    end_prefill = time.perf_counter()
 
+    # decoding
     next_double = False
     double_buffer = None
     cachelens_update = None
@@ -126,16 +152,16 @@ for step, batch in tqdm(enumerate(dataloader), total=num_eval_steps):
             t1 = time.time()
 
         for i in range(args.gamma):
-                if i == 0:
-                    if next_double:
-                        # The cachelens should increase 1 or 2
-                        next_tokens = engine.speculate(double_buffer, cachelen_update=cachelens_update)
-                        tokens_buffer[:,i+1:i+2] = next_tokens.gather(1, cachelens_update.view(-1,1) - 1)
-                        next_double = False
-                    else:
-                        tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
-                    continue
-                tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
+            if i == 0:
+                if next_double:
+                    # The cachelens should increase 1 or 2
+                    next_tokens = engine.speculate(double_buffer, cachelen_update=cachelens_update)
+                    tokens_buffer[:,i+1:i+2] = next_tokens.gather(1, cachelens_update.view(-1,1) - 1)
+                    next_double = False
+                else:
+                    tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
+                continue
+            tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
 
         # for i in range(args.gamma):
         #     # tokens_buffer[:,i+1:i+2] = draft_sample(engine.speculate(tokens_buffer[:, i].view(-1,1)))
@@ -241,11 +267,16 @@ for step, batch in tqdm(enumerate(dataloader), total=num_eval_steps):
     end=time.perf_counter()
     total_time += end-start
     num_gen_tokens += (num_nodes.sum() - (input_ids.shape[1] + 1) * BATCH_SIZE)
-    if args.printoutput:
-        for i in range(BATCH_SIZE):
-            print("Sequence ", i)
-            print(tokenizer.decode(output[i, args.prefix_len:num_nodes[i]]))
-    print("total time :{:.5f}s, time per iter :{:.5f}s, decoding step: {}, large model step: {}".format(total_time, total_time / target_steps, num_gen_tokens, target_steps))
+    # if args.printoutput:
+    #     for i in range(BATCH_SIZE):
+    #         print("Sequence ", i)
+    #         print(tokenizer.decode(output[i, args.prefix_len:num_nodes[i]]))
+    generated = tokenizer.decode(output[0, args.prefix_len:num_nodes[0]])
+    answer = extract_answer(generated)
+    if answer == item['answer']:
+        acc += 1
+    
+    print("total time :{:.5f}s, time per iter :{:.5f}s, prefill time :{:.5f}s ,decoding step: {}, large model step: {}".format(total_time, total_time / target_steps, end_prefill - start_prefill, num_gen_tokens, target_steps))
     if benchmark:
         print("target time :{:.5f}s, draft time :{:.5f}s, verify loop : {}, avg generate len per sentence: {}".format(target_time/target_steps, draft_time / target_steps, verify_loop/target_steps, num_gen_tokens/target_steps/BATCH_SIZE))
     if step < 5:   # TODO: revert to 10?
@@ -259,6 +290,7 @@ for step, batch in tqdm(enumerate(dataloader), total=num_eval_steps):
     if use_tp:
         dist.barrier()
 
+print(f"Accuracy: {acc/len(ds)}")
 print(f"Final tokens per second :{num_gen_tokens/total_time}")
 
 # if rank == 0:
