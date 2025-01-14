@@ -103,7 +103,7 @@ if benchmark:
     verify_loop = 0.0
     
 
-query_template = open('../prompt_templates/query.txt', encoding='utf-8').read()
+query_template = open('/home/e/e0969258/Projects/MagicDec/tests/prompt_templates/query.txt', encoding='utf-8').read()
 
 def extract_answer(response):
     response = response.replace('*', '')
