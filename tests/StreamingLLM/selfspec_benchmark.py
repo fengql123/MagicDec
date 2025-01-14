@@ -92,7 +92,7 @@ print(f"eot_1: {eot_1}, eot_2: {eot_2}")
 #     raise ValueError(f"Unknown dataset {args.dataset}")
 # dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
 ds = load_dataset('THUDM/LongBench-v2', split='train')
-num_eval_steps = min(10, len(ds))
+num_eval_steps = len(ds)
 
 total_time = 0.0
 num_gen_tokens = 0
