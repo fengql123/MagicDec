@@ -1,8 +1,8 @@
-transformers==4.36.2
-numpy==1.26.3
+transformers==4.45.2
+numpy
 protobuf
 sentencepiece
-datasets==2.16.1
+datasets
 tiktoken
 packaging
 ninja
