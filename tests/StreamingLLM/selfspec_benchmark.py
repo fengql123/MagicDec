@@ -84,15 +84,15 @@ else:
     eot_2 = tokenizer.encode("<|eot_id|>")[-1]
 print(f"eot_1: {eot_1}, eot_2: {eot_2}")
 
-# if args.dataset == "pg19":
-#     dataset = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
-# # elif args.dataset.startswith("ruler"):
-# #     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
-# else:
-#     raise ValueError(f"Unknown dataset {args.dataset}")
-# dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
-ds = load_dataset('THUDM/LongBench-v2', split='train')
-# ds = dataloader
+if args.dataset == "pg19":
+    dataset = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
+# elif args.dataset.startswith("ruler"):
+#     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
+else:
+    raise ValueError(f"Unknown dataset {args.dataset}")
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
+# ds = load_dataset('THUDM/LongBench-v2', split='train')
+ds = dataloader
 num_eval_steps = len(ds)
 
 total_time = 0.0
@@ -122,12 +122,12 @@ acc = 0
 for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     if step >= num_eval_steps:
         break
-    long_context = item["context"]
-    query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
+    # long_context = item["context"]
+    # query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
     
-    input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
+    # input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
     # input_ids = torch.cat([input_ids, input_ids], dim=0)
-    # input_ids = item[0].to(DEVICE)
+    input_ids = item[0].to(DEVICE)
     terminal = False
     tokens_buffer= torch.zeros((BATCH_SIZE, args.gamma+1), device=DEVICE).long()
     output = torch.zeros(BATCH_SIZE, MAX_LEN_TARGET+1, device=DEVICE).long()
