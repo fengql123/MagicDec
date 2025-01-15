@@ -43,15 +43,17 @@ def update_kv(
             kv_page_indptr,
             kv_page_last_len,
         ):
-        flashinfer.append_paged_kv_cache(
-            k,
-            v,
-            kv_append_indptr,
-            kv_cache,
-            kv_page_indices,
-            kv_page_indptr,
-            kv_page_last_len,
-        )
+    batch_indices, positions = flashinfer.get_batch_indices_positions(kv_append_indptr)
+    flashinfer.append_paged_kv_cache(
+        k,
+        v,
+        batch_indices,
+        positions,
+        kv_cache,
+        kv_page_indices,
+        kv_page_indptr,
+        kv_page_last_len,
+    )
 
 @torch.library.register_fake("mylib::update_kv")
 def update_kv_abstract(
