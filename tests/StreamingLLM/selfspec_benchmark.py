@@ -126,7 +126,7 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
     
     input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
-    input_ids = torch.cat([input_ids, input_ids], dim=0)
+    # input_ids = torch.cat([input_ids, input_ids], dim=0)
     # input_ids = item[0].to(DEVICE)
     terminal = False
     tokens_buffer= torch.zeros((BATCH_SIZE, args.gamma+1), device=DEVICE).long()
