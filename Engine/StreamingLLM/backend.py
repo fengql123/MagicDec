@@ -24,7 +24,7 @@ class LMBackend:
     def setup_caches(self, max_batch_size: int = 1, max_seq_length: int = 2048, draft_budget = 0):
         self.draft_budget = draft_budget
         self.batch_size = max_batch_size
-        self.cachelens = torch.zeros(max_batch_size, dtype=torch.int32, device=self.device)
+        self.cachelens = 0
         page_size = 128
         max_num_pages = max_batch_size * max_seq_length // page_size
         if max_num_pages*page_size < max_batch_size*max_seq_length:
@@ -124,11 +124,11 @@ class LMBackend:
             logits = self.model_forward(
                 model=self.model, 
                 x=input_ids,
-                input_pos=self.cachelens,
+                input_pos=torch.tensor(self.cachelens, dtype=torch.int32, device=self.device),
                 kv_append_indptr = self.qo_indptr*dec_len, kv_page_indices = self.paged_kv_indices, kv_page_indptr= self.paged_kv_indptr, kv_page_lastlen = self.paged_kv_last_page_len,
                 )
 
-            self.cachelens = self.cachelens + (torch.zeros_like(self.cachelens) + dec_len)
+            self.cachelens += dec_len
             if benchmark:
                 # If benchmarking the latency, don't update the cachelens and page table
                 self.cachelens -= dec_len
@@ -204,7 +204,7 @@ class LMBackend:
             logits = self.prefill(
                 model=self.model,
                 x=chunk_input_ids,
-                input_pos=self.cachelens,
+                input_pos=torch.tensor(self.cachelens, dtype=torch.int32, device=self.device),
                 kv_append_indptr = self.qo_indptr*dec_len, kv_page_indices = self.paged_kv_indices, kv_page_indptr= self.paged_kv_indptr, kv_page_lastlen = self.paged_kv_last_page_len
             )
             self.cachelens += dec_len
@@ -304,7 +304,7 @@ class LMBackend:
         for b in self.model.layers:
             b.attention.kv_cache.kv_cache.zero_()
             b.attention.kv_cache.draft_cache.zero_()
-        self.cachelens.zero_()
+        self.cachelens = 0
         self.qo_indptr = torch.arange(self.batch_size+1, dtype=torch.int32, device=self.device)
         self.paged_kv_indptr = torch.arange(self.batch_size+1, dtype=torch.int32, device=self.device)
         self.paged_kv_indices = torch.empty(self.max_num_pages, dtype=torch.int32, device=self.device)
