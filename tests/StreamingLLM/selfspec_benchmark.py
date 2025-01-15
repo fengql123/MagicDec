@@ -295,6 +295,8 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
             verify_loop = 0.0
     if use_tp:
         dist.barrier()
+    
+    torch.cuda.empty_cache()
 
 print(f"Accuracy: {acc/len(ds)}")
 print(f"Final tokens per second :{num_gen_tokens/total_time}")
