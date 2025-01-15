@@ -207,19 +207,17 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
         
         # Rollback the memory length
         engine.cachelens = engine.cachelens - args.gamma - 1
-        tmp = torch.tensor([engine.cachelens],dtype=torch.int32, device=DEVICE)
         engine.paged_kv_last_page_len = engine.paged_kv_last_page_len - args.gamma - 1
 
         # Put the accepted tokens to output
         positions = torch.arange(output.shape[1], device=DEVICE).view(1, -1).repeat(BATCH_SIZE, 1)
-        mask = (positions < (tmp.view(-1,1) + accept_nums)) & (positions >= tmp.view(-1, 1))
+        mask = (positions < (engine.cachelens.view(-1,1) + accept_nums)) & (positions >= engine.cachelens.view(-1, 1))
         positions_buffer = torch.arange(args.gamma+1, device=DEVICE).view(1, -1).repeat(BATCH_SIZE, 1)
         mask_buffer = positions_buffer<accept_nums.view(-1,1)
         output[mask] = tokens_buffer[mask_buffer]
 
         # Set the cache length to the accepted length
-        tmp += accept_nums.flatten().to(torch.int32)
-        engine.cachelens = tmp[0].detach().cpu().item()
+        engine.cachelens += accept_nums.flatten().to(torch.int32)
         engine.paged_kv_last_page_len += accept_nums.flatten().to(torch.int32)
 
         max_limit = torch.full_like(accept_nums, args.gamma, device = DEVICE)
