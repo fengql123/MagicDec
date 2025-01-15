@@ -124,7 +124,7 @@ class LMBackend:
             logits = self.model_forward(
                 model=self.model, 
                 x=input_ids,
-                input_pos=torch.tensor(self.cachelens, dtype=torch.int32, device=self.device),
+                input_pos=torch.tensor([self.cachelens], dtype=torch.int32, device=self.device),
                 kv_append_indptr = self.qo_indptr*dec_len, kv_page_indices = self.paged_kv_indices, kv_page_indptr= self.paged_kv_indptr, kv_page_lastlen = self.paged_kv_last_page_len,
                 )
 
@@ -204,7 +204,7 @@ class LMBackend:
             logits = self.prefill(
                 model=self.model,
                 x=chunk_input_ids,
-                input_pos=torch.tensor(self.cachelens, dtype=torch.int32, device=self.device),
+                input_pos=torch.tensor([self.cachelens], dtype=torch.int32, device=self.device),
                 kv_append_indptr = self.qo_indptr*dec_len, kv_page_indices = self.paged_kv_indices, kv_page_indptr= self.paged_kv_indptr, kv_page_lastlen = self.paged_kv_last_page_len
             )
             self.cachelens += dec_len
