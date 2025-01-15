@@ -46,12 +46,12 @@ def convert_pg19_dataset(tokenizer, seq_len = 4096, end = 20):
     tokenized_prompts = []
     for i in tqdm(range(0,50)):
         prompt = dataset[i]['text']
-        tokenized_prompt = tokenizer.encode(prompt, return_tensors="pt")[:,8000:]
-        tokenized_prompt = tokenized_prompt.split(seq_len, dim=-1)[:-1]
-        
-        for i in range(len(tokenized_prompt)):
-            tokenized_prompt[i][:, 0] = tokenizer.bos_token_id if tokenizer.bos_token_id is not None else tokenizer.eos_token_id
-            tokenized_prompts.append(tokenized_prompt[i])
+        tokenized_prompt = tokenizer.encode(prompt, return_tensors="pt")
+        # tokenized_prompt = tokenized_prompt.split(seq_len, dim=-1)[:-1]
+        # print(tokenized_prompt)
+        # for i in range(len(tokenized_prompt)):
+        #     tokenized_prompt[i][:, 0] = tokenizer.bos_token_id if tokenizer.bos_token_id is not None else tokenizer.eos_token_id
+        #     tokenized_prompts.append(tokenized_prompt[i])
     data = torch.cat(tokenized_prompts, dim=0).repeat(end,1)
     return TensorDataset(data)
 
