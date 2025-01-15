@@ -43,13 +43,12 @@ def update_kv(
             kv_page_indptr,
             kv_page_last_len,
         ):
-    seq_lens = flashinfer.get_seq_lens(kv_page_indptr, kv_page_last_len, 128)
-    batch_indices, positions = flashinfer.get_batch_indices_positions(kv_append_indptr, seq_lens, kv_append_indptr[-1].item())
+    # seq_lens = flashinfer.get_seq_lens(kv_page_indptr, kv_page_last_len, 128)
+    # batch_indices, positions = flashinfer.get_batch_indices_positions(kv_append_indptr, seq_lens, kv_append_indptr[-1].item())
     flashinfer.append_paged_kv_cache(
         k,
         v,
-        batch_indices,
-        positions,
+        kv_append_indptr,
         kv_cache,
         kv_page_indices,
         kv_page_indptr,
