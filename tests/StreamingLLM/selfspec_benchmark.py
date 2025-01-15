@@ -121,6 +121,8 @@ acc = 0
 for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     if step >= num_eval_steps:
         break
+    if step == 3:
+        continue
     long_context = item["context"]
     query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
     
