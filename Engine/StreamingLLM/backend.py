@@ -128,6 +128,9 @@ class LMBackend:
                 kv_append_indptr = self.qo_indptr*dec_len, kv_page_indices = self.paged_kv_indices, kv_page_indptr= self.paged_kv_indptr, kv_page_lastlen = self.paged_kv_last_page_len,
                 )
             
+            print(self.cachelens)
+            print(dec_len)
+            
             self.cachelens = self.cachelens + dec_len
             if benchmark:
                 # If benchmarking the latency, don't update the cachelens and page table
