@@ -53,8 +53,8 @@ def convert_pg19_dataset(tokenizer, seq_len = 4096, end = 20):
         #     tokenized_prompt[i][:, 0] = tokenizer.bos_token_id if tokenizer.bos_token_id is not None else tokenizer.eos_token_id
         #     tokenized_prompts.append(tokenized_prompt[i])
         tokenized_prompts.append(tokenized_prompt)
-    data = torch.cat(tokenized_prompts, dim=0).repeat(end,1)
-    return TensorDataset(data)
+    # data = torch.cat(tokenized_prompts, dim=0).repeat(end,1)
+    return tokenized_prompts
 
 # def convert_ruler_dataset(tokenizer, task, model_name, seq_len = 4096, subset = "validation"):
 #     curr_folder = os.path.dirname(os.path.abspath(__file__))
