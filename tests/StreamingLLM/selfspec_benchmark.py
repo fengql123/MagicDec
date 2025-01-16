@@ -13,6 +13,14 @@ import argparse
 from MagicDec.Engine.StreamingLLM.backend import LMBackend
 from datasets import load_dataset
 import re
+import subprocess as sp
+import os
+
+def get_gpu_memory():
+    command = "nvidia-smi --query-gpu=memory.free --format=csv"
+    memory_free_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
+    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+    return memory_free_values
 
 parser = argparse.ArgumentParser(description='Process model configuration and partitions.')
 parser.add_argument('--model', type=Path, default=Path("/scratch/models/meta-llama/Meta-Llama-3.1-8B/model.pth"), help='model')
@@ -84,14 +92,14 @@ else:
     eot_2 = tokenizer.encode("<|eot_id|>")[-1]
 print(f"eot_1: {eot_1}, eot_2: {eot_2}")
 
-if args.dataset == "pg19":
-    ds = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
-# elif args.dataset.startswith("ruler"):
-#     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
-else:
-    raise ValueError(f"Unknown dataset {args.dataset}")
+# if args.dataset == "pg19":
+#     ds = convert_pg19_dataset(tokenizer=tokenizer, seq_len=args.prefix_len)
+# # elif args.dataset.startswith("ruler"):
+# #     dataset = convert_ruler_dataset(tokenizer=tokenizer, task=args.dataset.split(":")[1], model_name=args.model_name, seq_len=args.prefix_len)
+# else:
+#     raise ValueError(f"Unknown dataset {args.dataset}")
 # dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
-# ds = load_dataset('THUDM/LongBench-v2', split='train')
+ds = load_dataset('THUDM/LongBench-v2', split='train')
 # ds = dataloader
 num_eval_steps = len(ds)
 
@@ -122,14 +130,13 @@ acc = 0
 for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     if step >= num_eval_steps:
         break
-    # long_context = item["context"]
-    # query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
+    long_context = item["context"]
+    query = query_template.replace('$Q$', item['question'].strip()).replace('$C_A$', item['choice_A'].strip()).replace('$C_B$', item['choice_B'].strip()).replace('$C_C$', item['choice_C'].strip()).replace('$C_D$', item['choice_D'].strip())
     
-    # input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
-    # input_ids = torch.cat([input_ids, input_ids], dim=0)
-    input_ids = item.to(DEVICE)
+    input_ids = tokenizer([long_context + "\n\n" + query], return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
+    # input_ids = item.to(DEVICE)
     terminal = False
-    tokens_buffer= torch.zeros((BATCH_SIZE, args.gamma+1), device=DEVICE).long()
+    tokens_buffer = torch.zeros((BATCH_SIZE, args.gamma+1), device=DEVICE).long()
     output = torch.zeros(BATCH_SIZE, MAX_LEN_TARGET+1, device=DEVICE).long()
     if input_ids.shape[1] > args.prefix_len:
         continue
@@ -294,8 +301,6 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
             verify_loop = 0.0
     if use_tp:
         dist.barrier()
-    
-    torch.cuda.empty_cache()
 
 print(f"Accuracy: {acc/len(ds)}")
 print(f"Final tokens per second :{num_gen_tokens/total_time}")
