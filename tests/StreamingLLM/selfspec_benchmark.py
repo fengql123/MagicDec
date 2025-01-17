@@ -281,6 +281,9 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
                 torch.cuda.synchronize()
                 t4 = time.time()
                 verify_loop += t4-t3
+    
+    del engine
+    torch.cuda.empty_cache()
 
     torch.cuda.synchronize()
     end=time.perf_counter()
@@ -308,9 +311,6 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
             verify_loop = 0.0
     if use_tp:
         dist.barrier()
-    
-    del engine
-    torch.cuda.empty_cache()
 
 print(f"Accuracy: {acc/len(ds)}")
 print(f"Final tokens per second :{num_gen_tokens/total_time}")
