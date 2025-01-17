@@ -179,7 +179,7 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
                     next_double = False
                 else:
                     tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
-                    continue
+                continue
             tokens_buffer[:,i+1:i+2] = engine.speculate(tokens_buffer[:, i].view(-1,1))
 
         # for i in range(args.gamma):
