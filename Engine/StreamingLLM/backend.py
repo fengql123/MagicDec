@@ -316,3 +316,18 @@ class LMBackend:
         self.draft_paged_kv_indptr = torch.arange(self.batch_size+1, dtype=torch.int32, device=self.device)*(self.draft_budget//self.page_size + 1)
         self.draft_paged_kv_indices = torch.empty(self.draft_max_num_pages, dtype=torch.int32, device=self.device)
         self.draft_paged_kv_last_page_len = torch.zeros((self.batch_size), dtype=torch.int32, device=self.device)
+        
+    def clear(self):
+        del self.model
+        del self.cachelens
+        del self.qo_indptr
+        del self.paged_kv_indptr
+        del self.paged_kv_indices
+        del self.paged_kv_last_page_len
+        del self.num_pages_per_request
+
+        del self.draft_cachelens
+        del self.draft_num_pages_per_request
+        del self.draft_paged_kv_indptr
+        del self.draft_paged_kv_indices
+        del self.draft_paged_kv_last_page_len

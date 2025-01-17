@@ -282,6 +282,7 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
                 t4 = time.time()
                 verify_loop += t4-t3
     
+    engine.clear()
     del engine
     torch.cuda.empty_cache()
 
