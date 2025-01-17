@@ -295,6 +295,8 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
     #         print("Sequence ", i)
     #         print(tokenizer.decode(output[i, args.prefix_len:num_nodes[i]]))
     generated = tokenizer.decode(output[0, args.prefix_len:num_nodes[0]])
+    
+    print(generated)
     answer = extract_answer(generated)
     if answer == item['answer']:
         acc += 1
