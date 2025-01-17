@@ -75,12 +75,12 @@ checkpoint_path = args.model
 target_dec_len = args.gamma + 1
 
 # Load target model
-engine = LMBackend(dtype=DTYPE, device=DEVICE, dec_len=target_dec_len)
-engine.load_model(checkpoint_path, use_tp=use_tp, rank_group = args.rank_group, group=global_group)
-vocab_size = engine.model.config.vocab_size
-if args.compile:
-    engine.compile()
-engine.setup_caches(max_batch_size=BATCH_SIZE, max_seq_length=MAX_LEN_TARGET, draft_budget=args.draft_budget)
+# engine = LMBackend(dtype=DTYPE, device=DEVICE, dec_len=target_dec_len)
+# engine.load_model(checkpoint_path, use_tp=use_tp, rank_group = args.rank_group, group=global_group)
+# vocab_size = engine.model.config.vocab_size
+# if args.compile:
+#     engine.compile()
+# engine.setup_caches(max_batch_size=BATCH_SIZE, max_seq_length=MAX_LEN_TARGET, draft_budget=args.draft_budget)
 
 # Load dataset
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -128,6 +128,13 @@ def extract_answer(response):
 
 acc = 0
 for step, item in tqdm(enumerate(ds), total=num_eval_steps):
+    engine = LMBackend(dtype=DTYPE, device=DEVICE, dec_len=target_dec_len)
+    engine.load_model(checkpoint_path, use_tp=use_tp, rank_group = args.rank_group, group=global_group)
+    vocab_size = engine.model.config.vocab_size
+    if args.compile:
+        engine.compile()
+    engine.setup_caches(max_batch_size=BATCH_SIZE, max_seq_length=MAX_LEN_TARGET, draft_budget=args.draft_budget)
+    
     if step >= num_eval_steps:
         break
     long_context = item["context"]
@@ -301,6 +308,9 @@ for step, item in tqdm(enumerate(ds), total=num_eval_steps):
             verify_loop = 0.0
     if use_tp:
         dist.barrier()
+    
+    del engine
+    torch.cuda.empty_cache()
 
 print(f"Accuracy: {acc/len(ds)}")
 print(f"Final tokens per second :{num_gen_tokens/total_time}")
